@@ -2,7 +2,10 @@ version: '3.8'
 
 services:
   web:
-    build: .
+    build:
+      context: .ai
+      args:
+        APP_PORT: ${DOCKER_APP_PORT}
     env_file:
       - .env
     ports:
@@ -10,6 +13,8 @@ services:
     volumes:
       - .:/usr/src/app
     command: air ./cmd/main.go -b 0.0.0.0
+    environment:
+      - TZ=Asia/Yekaterinburg
 
   db:
     image: postgres:alpine

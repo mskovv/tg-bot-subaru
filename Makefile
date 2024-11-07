@@ -3,3 +3,6 @@ up:
 
 down:
 	@docker compose down
+
+cp-env:
+	@cp .env.dist .env
