@@ -1,43 +1,54 @@
 package main
 
 import (
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/joho/godotenv"
 	"github.com/mskovv/tg-bot-subaru96/internal/database"
 	"github.com/mskovv/tg-bot-subaru96/internal/handler"
 	"github.com/mskovv/tg-bot-subaru96/internal/repository"
 	"github.com/mskovv/tg-bot-subaru96/internal/service"
+	"github.com/mymmrac/telego"
 	"log"
 	"os"
+
+	th "github.com/mymmrac/telego/telegohandler"
 )
 
 func main() {
-	bot, err := tgbotapi.NewBotAPI(os.Getenv("TG_BOT_TOKEN"))
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	botToken := os.Getenv("TG_BOT_TOKEN")
+
+	bot, err := telego.NewBot(botToken, telego.WithDefaultDebugLogger())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Printf("Authorized on account %s", bot.Self.UserName)
+	me, err := bot.GetMe()
+	log.Printf("Authorized on account  %v\n", me)
+
 	db := database.ConnectDb()
+
 	appointmentRepo := repository.NewAppointmentRepository(db)
 	appointmentService := service.NewAppointmentService(appointmentRepo)
-	appointmentHandler := handler.NewAppointmentHandler(appointmentService)
+	appointmentHandler := handler.NewAppointmentHandler(appointmentService, bot)
 
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
+	updates, _ := bot.UpdatesViaLongPolling(nil)
 
-	updates := bot.GetUpdatesChan(u)
+	bh, _ := th.NewBotHandler(bot, updates)
+	defer bh.Stop()
+	defer bot.StopLongPolling()
 
-	for update := range updates {
-		if update.Message == nil {
-			continue
-		}
+	bh.Handle(func(bot *telego.Bot, update telego.Update) {
+		appointmentHandler.SendStartMessage(update)
+	}, th.CommandEqual("start"))
 
-		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+	bh.Handle(func(bot *telego.Bot, update telego.Update) {
+		appointmentHandler.CreateAppointment(update)
+	}, th.TextEqual("Создать запись"))
 
-		switch update.Message.Command() {
-		case "remove_appointment":
-			appointmentHandler.RemoveAppointment(update)
-		}
-	}
+	bh.Start()
 
 }
