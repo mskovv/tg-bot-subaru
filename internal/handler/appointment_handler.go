@@ -4,7 +4,7 @@ import (
 	"github.com/mskovv/tg-bot-subaru96/internal/service"
 	"github.com/mymmrac/telego"
 	tu "github.com/mymmrac/telego/telegoutil"
-	"strings"
+	"time"
 )
 
 type AppointmentHandler struct {
@@ -64,40 +64,39 @@ func (h *AppointmentHandler) RemoveAppointment(message *telego.Message) {
 
 func (h *AppointmentHandler) GetAppointmentBuId(message *telego.Message) {}
 
+func (h *AppointmentHandler) isDateAvailable(date time.Time) bool {
+	return true
+}
+
 func (h *AppointmentHandler) CreateAppointment(update telego.Update) {
-	err := h.SendMessage(update, "Implemented me ")
+	startDate := time.Now()
+	if startDate.Weekday() != time.Monday {
+		for startDate.Weekday() != time.Monday {
+			startDate = startDate.AddDate(0, 0, -1)
+		}
+	}
+
+	var daysButtons []telego.KeyboardButton
+	for i := 0; i < 5; i++ {
+		date := startDate.AddDate(0, 0, i)
+		if h.isDateAvailable(date) { // Проверяем доступность даты
+			buttonText := date.Format("02 Января")
+			daysButtons = append(daysButtons, tu.KeyboardButton(buttonText))
+		}
+	}
+
+	keyboard := tu.Keyboard(
+		tu.KeyboardRow(daysButtons...),
+	).WithResizeKeyboard().WithInputFieldPlaceholder("Выберите дату")
+
+	_, err := h.bot.SendMessage(tu.Message(
+		tu.ID(update.Message.Chat.ID),
+		"Выберите свободную дату для записи:",
+	).WithReplyMarkup(keyboard))
+
 	if err != nil {
 		return
 	}
-	args := update.Message.Text[len("/create_appointment "):]
-	parts := strings.SplitN(args, " ", 3)
-
-	if len(parts) < 3 {
-		h.SendMessage(update, "Пожалуйста, укажите дату, время и описание через пробел.")
-		return
-	}
-
-	//date := parts[0]
-	//time := parts[1]
-	//description := parts[2]
-	//
-	//// Создаем новую запись
-	//appointment := &models.Appointment{
-	//	Date:        time2.Parse(),
-	//	Time:        time,
-	//	Description: description,
-	//}
-	//
-	//// Сохраняем запись через сервис
-	//if err := h.svc.CreateAppointment(appointment); err != nil {
-	//	h.sendMessage(message.Chat.ID, fmt.Sprintf("Ошибка создания записи: %v", err))
-	//	return
-	//}
-
-	//err := h.SendMessage(update, "Запись успешно создана!")
-	//if err != nil {
-	//	return
-	//}
 }
 
 func (h *AppointmentHandler) SendStartMessage(update telego.Update) {

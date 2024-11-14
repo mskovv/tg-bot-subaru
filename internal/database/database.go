@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/mskovv/tg-bot-subaru96/internal/models"
+	"github.com/mskovv/tg-bot-subaru96/internal/models/migrations"
 	"gorm.io/gorm/logger"
 	"log"
 	"os"
@@ -45,7 +46,9 @@ func ConnectDb() *gorm.DB {
 	if err != nil {
 		log.Fatal("Failed execute migrate. \n", err)
 	}
-	log.Println("running migrations")
+
+	migrations.AddInitialUser(DB)
+	log.Println("end migrations")
 
 	return DB
 }
