@@ -6,6 +6,7 @@ import (
 	"github.com/mskovv/tg-bot-subaru96/internal/handler"
 	"github.com/mskovv/tg-bot-subaru96/internal/repository"
 	"github.com/mskovv/tg-bot-subaru96/internal/service"
+	"github.com/mskovv/tg-bot-subaru96/internal/storage"
 	"github.com/mymmrac/telego"
 	"log"
 	"os"
@@ -20,6 +21,8 @@ func main() {
 	}
 
 	botToken := os.Getenv("TG_BOT_TOKEN")
+	redisAddr := os.Getenv("REDIS_ADDR")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
 
 	bot, err := telego.NewBot(botToken, telego.WithDefaultDebugLogger())
 	if err != nil {
@@ -33,7 +36,8 @@ func main() {
 
 	appointmentRepo := repository.NewAppointmentRepository(db)
 	appointmentService := service.NewAppointmentService(appointmentRepo)
-	appointmentHandler := handler.NewAppointmentHandler(appointmentService, bot)
+	redisStorage := storage.NewRedisStorage(redisAddr, redisPassword)
+	appointmentHandler := handler.NewAppointmentHandler(appointmentService, redisStorage, bot)
 
 	updates, _ := bot.UpdatesViaLongPolling(nil)
 
