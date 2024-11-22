@@ -16,8 +16,6 @@ import (
 var DB *gorm.DB
 
 func ConnectDb() *gorm.DB {
-	fmt.Println("log", os.Getenv("DB_NAME"))
-
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("Не удалось загрузить .env файл.")

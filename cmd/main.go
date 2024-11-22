@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/mskovv/tg-bot-subaru96/internal/database"
 	"github.com/mskovv/tg-bot-subaru96/internal/handler"
@@ -21,8 +22,7 @@ func main() {
 	}
 
 	botToken := os.Getenv("TG_BOT_TOKEN")
-	redisAddr := os.Getenv("REDIS_ADDR")
-	redisPassword := os.Getenv("REDIS_PASSWORD")
+	redisAddr := os.Getenv("DOCKER_REDIS_PORT")
 
 	bot, err := telego.NewBot(botToken, telego.WithDefaultDebugLogger())
 	if err != nil {
@@ -36,7 +36,8 @@ func main() {
 
 	appointmentRepo := repository.NewAppointmentRepository(db)
 	appointmentService := service.NewAppointmentService(appointmentRepo)
-	redisStorage := storage.NewRedisStorage(redisAddr, redisPassword)
+	redisStorage, err := storage.NewRedisStorage(redisAddr)
+	fmt.Println(redisStorage)
 	appointmentHandler := handler.NewAppointmentHandler(appointmentService, redisStorage, bot)
 
 	updates, _ := bot.UpdatesViaLongPolling(nil)

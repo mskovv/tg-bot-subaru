@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"github.com/go-redis/redis/v8"
+	"log"
 	"strconv"
 )
 
@@ -10,13 +11,22 @@ type RedisStorage struct {
 	client *redis.Client
 }
 
-func NewRedisStorage(addr, pass string) *RedisStorage {
-	return &RedisStorage{
-		client: redis.NewClient(&redis.Options{
-			Addr:     addr,
-			Password: pass,
-		}),
+func NewRedisStorage(addr string) (*RedisStorage, error) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "redis:6379",
+		Password: "",
+		DB:       0,
+	})
+
+	_, err := rdb.Ping(context.Background()).Result()
+	if err != nil {
+		log.Fatalf("Failed to connect to Redis: %v", err)
+		return nil, err
 	}
+
+	return &RedisStorage{
+		client: rdb,
+	}, nil
 }
 
 func (r *RedisStorage) GetState(ctx context.Context, userId int64) (string, error) {
