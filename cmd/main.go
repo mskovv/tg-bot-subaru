@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"github.com/joho/godotenv"
 	"github.com/mskovv/tg-bot-subaru96/internal/database"
 	"github.com/mskovv/tg-bot-subaru96/internal/handler"
@@ -37,7 +37,6 @@ func main() {
 	appointmentRepo := repository.NewAppointmentRepository(db)
 	appointmentService := service.NewAppointmentService(appointmentRepo)
 	redisStorage, err := storage.NewRedisStorage(redisAddr)
-	fmt.Println(redisStorage)
 	appointmentHandler := handler.NewAppointmentHandler(appointmentService, redisStorage, bot)
 
 	updates, _ := bot.UpdatesViaLongPolling(nil)
@@ -50,8 +49,9 @@ func main() {
 		appointmentHandler.SendStartMessage(update)
 	}, th.CommandEqual("start"))
 
+	ctx := context.Background()
 	bh.Handle(func(bot *telego.Bot, update telego.Update) {
-		appointmentHandler.CreateAppointment(update)
+		appointmentHandler.HandleMessage(ctx, update)
 	}, th.TextEqual("Создать запись"))
 
 	bh.Start()

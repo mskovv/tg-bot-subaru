@@ -24,6 +24,7 @@ func NewRedisStorage(addr string) (*RedisStorage, error) {
 		return nil, err
 	}
 
+	log.Printf("Connected to Redis")
 	return &RedisStorage{
 		client: rdb,
 	}, nil
