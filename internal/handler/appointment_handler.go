@@ -70,13 +70,14 @@ func (h *AppointmentHandler) HandleMessage(ctx context.Context, update telego.Up
 			log.Println("Error sending message:", err)
 			return
 		}
-		h.resetState(ctx, userID, stateMachine)
+		h.resetState(ctx, userID)
 	}
 }
 
-func (h *AppointmentHandler) resetState(ctx context.Context, userId int64, state *fsmstate.FSM) {
-	state.Event(ctx, "reset")
-	h.storage.SetState(ctx, userId, state.Current())
+func (h *AppointmentHandler) resetState(ctx context.Context, userId int64) {
+	stateMachine := fsm.NewAppointmentFSM()
+	stateMachine.Event(ctx, "reset")
+	h.storage.SetState(ctx, userId, stateMachine.Current())
 }
 
 func (h *AppointmentHandler) ShowCalendar(ctx context.Context, userId int64, state *fsmstate.FSM) {
@@ -194,7 +195,19 @@ func (h *AppointmentHandler) CreateAppointment(update telego.Update) {
 	}
 }
 
-func (h *AppointmentHandler) SendStartMessage(update telego.Update) {
+func (h *AppointmentHandler) SendStartMessage(ctx context.Context, update telego.Update) {
+	userID := update.Message.Chat.ID
+	currentState, err := h.storage.GetState(ctx, userID)
+
+	if err != nil {
+		log.Println("Error getting fsm:", err)
+		return
+	}
+
+	if currentState != "" {
+		h.resetState(ctx, userID)
+	}
+
 	keyboard := tu.Keyboard(
 		tu.KeyboardRow(
 			tu.KeyboardButton("Создать запись"),
@@ -203,7 +216,7 @@ func (h *AppointmentHandler) SendStartMessage(update telego.Update) {
 		),
 	).WithResizeKeyboard()
 
-	_, err := h.bot.SendMessage(tu.Message(
+	_, err = h.bot.SendMessage(tu.Message(
 		tu.ID(update.Message.Chat.ID),
 		"Добро пожаловать! Выберите команду для работы с записями:",
 	).WithReplyMarkup(keyboard))

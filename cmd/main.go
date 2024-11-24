@@ -44,12 +44,12 @@ func main() {
 	bh, _ := th.NewBotHandler(bot, updates)
 	defer bh.Stop()
 	defer bot.StopLongPolling()
+	ctx := context.Background()
 
 	bh.Handle(func(bot *telego.Bot, update telego.Update) {
-		appointmentHandler.SendStartMessage(update)
+		appointmentHandler.SendStartMessage(ctx, update)
 	}, th.CommandEqual("start"))
 
-	ctx := context.Background()
 	bh.Handle(func(bot *telego.Bot, update telego.Update) {
 		appointmentHandler.HandleMessage(ctx, update)
 	}, th.TextEqual("Создать запись"))

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"github.com/go-redis/redis/v8"
 	"log"
 	"strconv"
@@ -32,6 +33,11 @@ func NewRedisStorage(addr string) (*RedisStorage, error) {
 
 func (r *RedisStorage) GetState(ctx context.Context, userId int64) (string, error) {
 	state, err := r.client.Get(ctx, userIdToString(userId)).Result()
+
+	if errors.Is(err, redis.Nil) {
+		return "", nil
+	}
+
 	if err != nil {
 		return "", err
 	}
