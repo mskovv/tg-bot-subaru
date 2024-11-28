@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"github.com/joho/godotenv"
 	"github.com/mskovv/tg-bot-subaru96/internal/database"
 	"github.com/mskovv/tg-bot-subaru96/internal/handler"
@@ -39,20 +38,32 @@ func main() {
 	redisStorage, err := storage.NewRedisStorage(redisAddr)
 	appointmentHandler := handler.NewAppointmentHandler(appointmentService, redisStorage, bot)
 
+	commands := []telego.BotCommand{
+		{Command: "create_appointment", Description: "Создать запись"},
+		{Command: "update_appointment", Description: "Обновить запись"},
+	}
+	err = bot.SetMyCommands(&telego.SetMyCommandsParams{Commands: commands})
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	updates, _ := bot.UpdatesViaLongPolling(nil)
 
 	bh, _ := th.NewBotHandler(bot, updates)
 	defer bh.Stop()
 	defer bot.StopLongPolling()
-	ctx := context.Background()
 
 	bh.Handle(func(bot *telego.Bot, update telego.Update) {
-		appointmentHandler.SendStartMessage(ctx, update)
+		appointmentHandler.SendStartMessage(update)
 	}, th.CommandEqual("start"))
 
 	bh.Handle(func(bot *telego.Bot, update telego.Update) {
-		appointmentHandler.HandleMessage(ctx, update)
-	}, th.TextEqual("Создать запись"))
+		appointmentHandler.HandleMessage(update)
+	}, th.AnyCommand())
+
+	bh.HandleCallbackQuery(func(bot *telego.Bot, callbackQuery telego.CallbackQuery) {
+		appointmentHandler.HandleCallback(callbackQuery)
+	}, th.AnyCallbackQuery())
 
 	bh.Start()
 

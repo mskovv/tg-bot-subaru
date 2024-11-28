@@ -20,7 +20,7 @@ func NewAppointmentFSM() *fsm.FSM {
 			{Name: "enter_car_model", Src: []string{StateSelectTime}, Dst: StateEnterCarModel},
 			{Name: "enter_description", Src: []string{StateEnterCarModel}, Dst: StateEnterDescription},
 			{Name: "confirm", Src: []string{StateEnterDescription}, Dst: StateConfirmation},
-			{Name: "reset", Src: []string{StateConfirmation, StateStart}, Dst: StateStart},
+			{Name: "reset", Src: []string{"*"}, Dst: StateStart},
 		},
 		nil,
 	)

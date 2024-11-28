@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	fsmstate "github.com/looplab/fsm"
 	"github.com/mskovv/tg-bot-subaru96/internal/fsm"
 	"github.com/mskovv/tg-bot-subaru96/internal/service"
@@ -9,6 +10,7 @@ import (
 	"github.com/mymmrac/telego"
 	tu "github.com/mymmrac/telego/telegoutil"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -26,18 +28,40 @@ func NewAppointmentHandler(srv *service.AppointmentService, storage *storage.Red
 	}
 }
 
-func (h *AppointmentHandler) HandleMessage(ctx context.Context, update telego.Update) {
+func (h *AppointmentHandler) HandleMessage(update telego.Update) {
+	userID := update.Message.From.ID
+	command := update.Message.Text
+	log.Println(command)
+
+	switch command {
+	case "/create_appointment":
+		h.StartAppointmentCreation(update)
+	case "update":
+		//h.StartAppointmentUpdate(update)
+	case "delete":
+		//h.StartAppointmentDeletion(update)
+	default:
+		h.bot.SendMessage(tu.Message(
+			tu.ID(userID),
+			"Неизвестная команда. Попробуйте снова.",
+		))
+		h.resetState(update.Context(), userID)
+	}
+}
+
+func (h *AppointmentHandler) StartAppointmentCreation(update telego.Update) {
 	userID := update.Message.Chat.ID
 
-	currentState, err := h.storage.GetState(ctx, userID)
+	currentState, err := h.storage.GetState(update.Context(), userID)
 	if err != nil {
 		log.Println("Error getting fsm:", err)
 		return
 	}
 
+	fmt.Println("current state:", currentState)
 	if currentState == "" {
 		currentState = fsm.StateStart
-		err = h.storage.SetState(ctx, userID, currentState)
+		err = h.storage.SetState(update.Context(), userID, currentState)
 
 		if err != nil {
 			log.Println("Error setting fsm:", err)
@@ -47,12 +71,16 @@ func (h *AppointmentHandler) HandleMessage(ctx context.Context, update telego.Up
 
 	stateMachine := fsm.NewAppointmentFSM()
 	stateMachine.SetState(currentState)
+	fmt.Println("current state2:", stateMachine.Current())
 
 	switch stateMachine.Current() {
 	case fsm.StateStart:
-		h.ShowCalendar(ctx, userID, stateMachine)
+		h.ShowCalendar(update, stateMachine)
 	case fsm.StateSelectDate:
-	//	TODO
+		h.bot.SendMessage(tu.Message(
+			tu.ID(userID),
+			"Выбор даты",
+		))
 	case fsm.StateSelectTime:
 	//	TODO
 	case fsm.StateEnterCarModel:
@@ -70,134 +98,65 @@ func (h *AppointmentHandler) HandleMessage(ctx context.Context, update telego.Up
 			log.Println("Error sending message:", err)
 			return
 		}
-		h.resetState(ctx, userID)
+		h.resetState(update.Context(), userID)
 	}
 }
 
 func (h *AppointmentHandler) resetState(ctx context.Context, userId int64) {
 	stateMachine := fsm.NewAppointmentFSM()
-	stateMachine.Event(ctx, "reset")
-	h.storage.SetState(ctx, userId, stateMachine.Current())
+	err := stateMachine.Event(ctx, "reset")
+	if err != nil {
+		log.Println("Error state.reset:", err)
+	}
+
+	err = h.storage.SetState(ctx, userId, stateMachine.Current())
+	if err != nil {
+		log.Println("Error SetState:", err)
+		return
+	}
 }
 
-func (h *AppointmentHandler) ShowCalendar(ctx context.Context, userId int64, state *fsmstate.FSM) {
-	startDate := time.Now()
-	if startDate.Weekday() != time.Monday {
-		for startDate.Weekday() != time.Monday {
-			startDate = startDate.AddDate(0, 0, -1)
-		}
-	}
+func (h *AppointmentHandler) ShowCalendar(update telego.Update, state *fsmstate.FSM) {
+	userID := update.Message.Chat.ID
 
-	var buttons []telego.KeyboardButton
+	var buttons []telego.InlineKeyboardButton
 	for i := 0; i < 7; i++ {
 		date := time.Now().AddDate(0, 0, i).Format("02.01.2006")
-		buttons = append(buttons, tu.KeyboardButton(date))
+		buttons = append(buttons, tu.InlineKeyboardButton(date).WithCallbackData("select_date:"+date))
 	}
 
-	keyboard := tu.Keyboard(
-		tu.KeyboardRow(buttons...),
-	).WithResizeKeyboard().WithInputFieldPlaceholder("Выберите дату")
+	keyboard := tu.InlineKeyboard(
+		tu.InlineKeyboardCols(1, buttons...)...,
+	)
 
 	_, err := h.bot.SendMessage(tu.Message(
-		tu.ID(userId),
+		tu.ID(userID),
 		"Выберите свободную дату для записи:",
 	).WithReplyMarkup(keyboard))
 
 	if err != nil {
 		log.Println("Error sending calendar:", err)
+		h.resetState(update.Context(), userID)
 		return
 	}
 
-	state.Event(ctx, "chose_date")
-	h.storage.SetState(ctx, userId, state.Current())
-}
-
-func (h *AppointmentHandler) UpdateAppointment(message *telego.Message) {
-	//args := message.Text[len("/update_appointment "):]
-	//parts := strings.SplitN(args, " ", 2)
-	//
-	//if len(parts) < 2 {
-	//	h.sendMessage(message.Chat.ID, "Пожалуйста, укажите ID записи и новое описание.")
-	//	return
-	//}
-	//
-	//appointmentID, err := strconv.Atoi(parts[0])
-	//if err != nil {
-	//	h.sendMessage(message.Chat.ID, "Неверный формат ID.")
-	//	return
-	//}
-	//
-	//newDescription := parts[1]
-	//
-	//appointment := &models.Appointment{
-	//	ID:          uint(appointmentID),
-	//	Description: newDescription,
-	//}
-	//
-	//if err := h.srv.UpdateAppointment(appointment); err != nil {
-	//	h.sendMessage(message.Chat.ID, fmt.Sprintf("Ошибка обновления: %v", err))
-	//	return
-	//}
-	//
-	//h.sendMessage(message.Chat.ID, "Запись успешно обновлена!")
-}
-
-func (h *AppointmentHandler) RemoveAppointment(message *telego.Message) {
-	//args := message.Text[len("/remove_appointment "):]
-	//appointmentID, err := strconv.Atoi(args)
-	//if err != nil {
-	//	h.sendMessage(message.Chat.ID, "Неверный формат ID.")
-	//	return
-	//}
-	//
-	//if err := h.srv.RemoveAppointment(uint(appointmentID)); err != nil {
-	//	h.sendMessage(message.Chat.ID, fmt.Sprintf("Ошибка удаления: %v", err))
-	//	return
-	//}
-	//
-	//h.sendMessage(message.Chat.ID, "Запись успешно удалена!")
-}
-
-func (h *AppointmentHandler) GetAppointmentBuId(message *telego.Message) {}
-
-func (h *AppointmentHandler) isDateAvailable(date time.Time) bool {
-	return true
-}
-
-func (h *AppointmentHandler) CreateAppointment(update telego.Update) {
-	startDate := time.Now()
-	if startDate.Weekday() != time.Monday {
-		for startDate.Weekday() != time.Monday {
-			startDate = startDate.AddDate(0, 0, -1)
-		}
-	}
-
-	var daysButtons []telego.KeyboardButton
-	for i := 0; i < 5; i++ {
-		date := startDate.AddDate(0, 0, i)
-		if h.isDateAvailable(date) { // Проверяем доступность даты
-			buttonText := date.Format("02 Января")
-			daysButtons = append(daysButtons, tu.KeyboardButton(buttonText))
-		}
-	}
-
-	keyboard := tu.Keyboard(
-		tu.KeyboardRow(daysButtons...),
-	).WithResizeKeyboard().WithInputFieldPlaceholder("Выберите дату")
-
-	_, err := h.bot.SendMessage(tu.Message(
-		tu.ID(update.Message.Chat.ID),
-		"Выберите свободную дату для записи:",
-	).WithReplyMarkup(keyboard))
-
+	err = state.Event(update.Context(), "chose_date")
 	if err != nil {
+		log.Println("Error state.Event:", err)
+		h.resetState(update.Context(), userID)
+		return
+	}
+	err = h.storage.SetState(update.Context(), userID, state.Current())
+	if err != nil {
+		log.Println("Error SetState:", err)
+		h.resetState(update.Context(), userID)
 		return
 	}
 }
 
-func (h *AppointmentHandler) SendStartMessage(ctx context.Context, update telego.Update) {
+func (h *AppointmentHandler) SendStartMessage(update telego.Update) {
 	userID := update.Message.Chat.ID
-	currentState, err := h.storage.GetState(ctx, userID)
+	currentState, err := h.storage.GetState(update.Context(), userID)
 
 	if err != nil {
 		log.Println("Error getting fsm:", err)
@@ -205,29 +164,46 @@ func (h *AppointmentHandler) SendStartMessage(ctx context.Context, update telego
 	}
 
 	if currentState != "" {
-		h.resetState(ctx, userID)
+		h.resetState(update.Context(), userID)
 	}
-
-	keyboard := tu.Keyboard(
-		tu.KeyboardRow(
-			tu.KeyboardButton("Создать запись"),
-			tu.KeyboardButton("Обновить запись"),
-			tu.KeyboardButton("Удалить запись"),
-		),
-	).WithResizeKeyboard()
-
-	_, err = h.bot.SendMessage(tu.Message(
-		tu.ID(update.Message.Chat.ID),
-		"Добро пожаловать! Выберите команду для работы с записями:",
-	).WithReplyMarkup(keyboard))
-
+	h.storage.SetState(update.Context(), userID, "start")
+	err = h.SendMessage(update, "Состояние сброшено, выберите команду из меню")
 	if err != nil {
-		// Обрабатываем ошибку отправки сообщения
 		err = h.SendMessage(update, "Произошла ошибка при отправке сообщения. Попробуйте снова.")
 		if err != nil {
 			return
 		}
 	}
+}
+
+func (h *AppointmentHandler) HandleCallback(callback telego.CallbackQuery) {
+	data := callback.Data
+
+	// Расшифровываем состояние из callback
+	state, _ := parseCallbackData(data)
+
+	switch state {
+	case "select_date":
+		// TODO
+		h.bot.AnswerCallbackQuery(tu.CallbackQuery(callback.ID).WithText("Неизвестное действие"))
+	case "select_time":
+		//h.HandleTimeSelection(callback, payload)
+		// TODO
+
+	case "confirm_details":
+		// TODO
+		//h.HandleConfirmation(callback)
+	default:
+		h.bot.AnswerCallbackQuery(tu.CallbackQuery(callback.ID).WithText("Неизвестное действие"))
+	}
+}
+
+func parseCallbackData(data string) (state, payload string) {
+	parts := strings.SplitN(data, ":", 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+	return data, ""
 }
 
 func (h *AppointmentHandler) SendMessage(update telego.Update, message string) error {
