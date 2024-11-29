@@ -59,7 +59,7 @@ func main() {
 
 	bh.Handle(func(bot *telego.Bot, update telego.Update) {
 		appointmentHandler.HandleMessage(update)
-	}, th.AnyCommand())
+	}, th.Any(), th.AnyCommand())
 
 	bh.HandleCallbackQuery(func(bot *telego.Bot, callbackQuery telego.CallbackQuery) {
 		appointmentHandler.HandleCallback(callbackQuery)

@@ -77,10 +77,7 @@ func (h *AppointmentHandler) StartAppointmentCreation(update telego.Update) {
 	case fsm.StateStart:
 		h.ShowCalendar(update, stateMachine)
 	case fsm.StateSelectDate:
-		h.bot.SendMessage(tu.Message(
-			tu.ID(userID),
-			"Выбор даты",
-		))
+		h.HandleTimeSelection(update)
 	case fsm.StateSelectTime:
 	//	TODO
 	case fsm.StateEnterCarModel:
@@ -176,16 +173,22 @@ func (h *AppointmentHandler) SendStartMessage(update telego.Update) {
 	}
 }
 
-func (h *AppointmentHandler) HandleCallback(callback telego.CallbackQuery) {
-	data := callback.Data
+func (h *AppointmentHandler) HandleTimeSelection(update telego.Update) {
+	userID := update.Message.Chat.ID
 
-	// Расшифровываем состояние из callback
-	state, _ := parseCallbackData(data)
+	h.bot.SendMessage(tu.Message(
+		tu.ID(userID),
+		"Выбор времени",
+	))
+}
+
+func (h *AppointmentHandler) HandleCallback(callback telego.CallbackQuery) {
+	state, payload := parseCallbackData(callback.Data)
 
 	switch state {
 	case "select_date":
 		// TODO
-		h.bot.AnswerCallbackQuery(tu.CallbackQuery(callback.ID).WithText("Неизвестное действие"))
+		h.bot.AnswerCallbackQuery(tu.CallbackQuery(callback.ID).WithText("Выбранная дата: " + payload))
 	case "select_time":
 		//h.HandleTimeSelection(callback, payload)
 		// TODO
