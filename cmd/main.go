@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/joho/godotenv"
 	"github.com/mskovv/tg-bot-subaru96/internal/database"
+	fsmstate "github.com/mskovv/tg-bot-subaru96/internal/fsm"
 	"github.com/mskovv/tg-bot-subaru96/internal/handler"
 	"github.com/mskovv/tg-bot-subaru96/internal/repository"
 	"github.com/mskovv/tg-bot-subaru96/internal/service"
@@ -23,7 +24,7 @@ func main() {
 	botToken := os.Getenv("TG_BOT_TOKEN")
 	redisAddr := os.Getenv("DOCKER_REDIS_PORT")
 
-	bot, err := telego.NewBot(botToken, telego.WithDefaultDebugLogger())
+	bot, err := telego.NewBot(botToken)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,7 +37,8 @@ func main() {
 	appointmentRepo := repository.NewAppointmentRepository(db)
 	appointmentService := service.NewAppointmentService(appointmentRepo)
 	redisStorage, err := storage.NewRedisStorage(redisAddr)
-	appointmentHandler := handler.NewAppointmentHandler(appointmentService, redisStorage, bot)
+	fsmState := fsmstate.NewAppointmentFSM()
+	appointmentHandler := handler.NewAppointmentHandler(appointmentService, redisStorage, bot, fsmState)
 
 	commands := []telego.BotCommand{
 		{Command: "create_appointment", Description: "Создать запись"},

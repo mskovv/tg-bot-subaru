@@ -1,6 +1,8 @@
 package fsm
 
-import "github.com/looplab/fsm"
+import (
+	"github.com/looplab/fsm"
+)
 
 const (
 	StateStart            = "start"
@@ -11,16 +13,25 @@ const (
 	StateConfirmation     = "confirmation"
 )
 
+const (
+	EventChoseDate        = "chose_date"
+	EventChoseTime        = "chose_time"
+	EventChoseCarModel    = "enter_car_model"
+	EventChoseDescription = "enter_description"
+	EventConfirm          = "confirm"
+	EventReset            = "reset"
+)
+
 func NewAppointmentFSM() *fsm.FSM {
 	return fsm.NewFSM(
 		StateStart,
 		fsm.Events{
-			{Name: "chose_date", Src: []string{StateStart}, Dst: StateSelectDate},
-			{Name: "choose_time", Src: []string{StateSelectDate}, Dst: StateSelectTime},
-			{Name: "enter_car_model", Src: []string{StateSelectTime}, Dst: StateEnterCarModel},
-			{Name: "enter_description", Src: []string{StateEnterCarModel}, Dst: StateEnterDescription},
-			{Name: "confirm", Src: []string{StateEnterDescription}, Dst: StateConfirmation},
-			{Name: "reset", Src: []string{"*"}, Dst: StateStart},
+			{Name: EventChoseDate, Src: []string{StateStart}, Dst: StateSelectDate},
+			{Name: EventChoseTime, Src: []string{StateStart, StateSelectDate}, Dst: StateSelectTime},
+			{Name: EventChoseCarModel, Src: []string{StateSelectTime}, Dst: StateEnterCarModel},
+			{Name: EventChoseDescription, Src: []string{StateEnterCarModel}, Dst: StateEnterDescription},
+			{Name: EventConfirm, Src: []string{StateEnterDescription}, Dst: StateConfirmation},
+			{Name: EventReset, Src: []string{"*"}, Dst: StateStart},
 		},
 		nil,
 	)
