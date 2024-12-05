@@ -43,6 +43,7 @@ func main() {
 	commands := []telego.BotCommand{
 		{Command: "create_appointment", Description: "Создать запись"},
 		{Command: "update_appointment", Description: "Обновить запись"},
+		{Command: "start", Description: "Запустить бота"},
 	}
 	err = bot.SetMyCommands(&telego.SetMyCommandsParams{Commands: commands})
 	if err != nil {
