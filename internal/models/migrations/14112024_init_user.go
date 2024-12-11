@@ -8,14 +8,13 @@ import (
 
 func AddInitialUser(db *gorm.DB) {
 	user := models.User{
-		Name:         "Андрей",
-		LastName:     "Плесовских",
-		Nickname:     "Дюха",
-		Role:         "Директор",
-		Appointments: nil,
+		Name:     "Андрей",
+		LastName: "Плесовских",
+		Nickname: "Дюха",
+		Role:     "Директор",
 	}
 
-	if err := db.Create(&user).Error; err != nil {
+	if err := db.FirstOrCreate(&user).Error; err != nil {
 		log.Fatalf("Не удалось добавить пользователя: %v", err)
 	} else {
 		log.Printf("Пользователь %s успешно добавлен с ролью %s.", user.Name, user.Role)

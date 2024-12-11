@@ -4,7 +4,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/mskovv/tg-bot-subaru96/internal/database"
 	fsmstate "github.com/mskovv/tg-bot-subaru96/internal/fsm"
-	"github.com/mskovv/tg-bot-subaru96/internal/handler"
+	"github.com/mskovv/tg-bot-subaru96/internal/handler/appointment"
 	"github.com/mskovv/tg-bot-subaru96/internal/repository"
 	"github.com/mskovv/tg-bot-subaru96/internal/service"
 	"github.com/mskovv/tg-bot-subaru96/internal/storage"
@@ -38,7 +38,7 @@ func main() {
 	appointmentService := service.NewAppointmentService(appointmentRepo)
 	redisStorage, err := storage.NewRedisStorage(redisAddr)
 	fsmState := fsmstate.NewAppointmentFSM()
-	appointmentHandler := handler.NewAppointmentHandler(appointmentService, redisStorage, bot, fsmState)
+	appointmentHandler := appointment.NewAppointmentHandler(appointmentService, redisStorage, bot, fsmState)
 
 	commands := []telego.BotCommand{
 		{Command: "create_appointment", Description: "Создать запись"},
@@ -61,8 +61,12 @@ func main() {
 	}, th.CommandEqual("start"))
 
 	bh.Handle(func(bot *telego.Bot, update telego.Update) {
-		appointmentHandler.HandleMessage(update)
-	}, th.Any(), th.AnyCommand())
+		appointmentHandler.HandleCommand(update)
+	}, th.AnyCommand())
+
+	bh.HandleMessage(func(bot *telego.Bot, message telego.Message) {
+		appointmentHandler.HandleMessage(message)
+	}, th.AnyMessage())
 
 	bh.HandleCallbackQuery(func(bot *telego.Bot, callbackQuery telego.CallbackQuery) {
 		appointmentHandler.HandleCallback(callbackQuery)
