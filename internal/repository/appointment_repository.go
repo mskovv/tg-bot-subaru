@@ -28,7 +28,7 @@ func (r *AppointmentRepository) GetAppointmentById(id int) (*models.Appointment,
 func (r *AppointmentRepository) RemoveAppointment(appointmentId uint) error {
 	if err := database.DB.First(&models.Appointment{}, appointmentId).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("пользователь не найден")
+			return errors.New("запись не найдена")
 		}
 		return err
 	}
@@ -38,7 +38,7 @@ func (r *AppointmentRepository) RemoveAppointment(appointmentId uint) error {
 func (r *AppointmentRepository) UpdateAppointment(appointment *models.Appointment) error {
 	if err := database.DB.First(&models.Appointment{}, appointment.ID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("пользователь не найден")
+			return errors.New("запись не найдена")
 		}
 		return err
 	}

@@ -12,6 +12,7 @@ import (
 	tu "github.com/mymmrac/telego/telegoutil"
 	"log"
 	"strings"
+	"time"
 )
 
 type Handler struct {
@@ -19,7 +20,7 @@ type Handler struct {
 	storage     *storage.RedisStorage
 	bot         *telego.Bot
 	fsm         *fsmstate.FSM
-	appointment models.Appointment
+	appointment *models.Appointment
 }
 
 func NewAppointmentHandler(srv *service.AppointmentService, storage *storage.RedisStorage, bot *telego.Bot, fsm *fsmstate.FSM) *Handler {
@@ -34,6 +35,7 @@ func NewAppointmentHandler(srv *service.AppointmentService, storage *storage.Red
 func (h *Handler) HandleCommand(update telego.Update) {
 	userID := update.Message.From.ID
 	command := update.Message.Text
+	h.appointment = &models.Appointment{}
 
 	switch command {
 	case "/create_appointment":
@@ -113,10 +115,16 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 		}
 		h.showTimeSelection(chat.ID)
 
-		err2 := h.fsm.Event(ctx, fsm.EventChoseTime)
-		if err2 != nil {
-			log.Println("Error state.Event EventChoseTime:", err2)
+		err = h.fsm.Event(ctx, fsm.EventChoseTime)
+		if err != nil {
+			log.Println("Error state.Event EventChoseTime:", err)
 			h.resetState(ctx, userId)
+		}
+		h.appointment.Date, err = time.Parse("02.01.2006", payload)
+		if err != nil {
+			h.bot.SendMessage(tu.Message(tu.ID(userId), "Произошла ошибка интерпритации даты"))
+			log.Fatal("Error parse Date: ", err)
+			return
 		}
 	case fsm.StateSelectTime:
 		_, err := h.bot.SendMessage(tu.Message(tu.ID(userId), "Выбранное время: "+payload))
@@ -129,6 +137,8 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 			log.Println("Error state.Event EventChoseCarMark:", err2)
 			h.resetState(ctx, userId)
 		}
+		h.appointment.Time, _ = time.Parse("15:04", payload)
+
 		h.showCarMarkSelection(chat.ID)
 	case fsm.StateEnterCarMark:
 		_, err := h.bot.SendMessage(tu.Message(tu.ID(userId), "Выбранная марка: "+payload))
@@ -141,6 +151,8 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 			log.Println("Current state", h.fsm.Current())
 			h.resetState(ctx, userId)
 		}
+		h.appointment.CarMark = payload
+
 		h.showCarModelSelection(userId, payload)
 	case fsm.StateEnterCarModel:
 		_, err := h.bot.SendMessage(tu.Message(tu.ID(userId), "Выбранная модель: "+payload))
@@ -153,6 +165,8 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 			log.Println("Current state", h.fsm.Current())
 			h.resetState(ctx, userId)
 		}
+		h.appointment.CarModel = payload
+
 		h.handleEnterDescription(userId)
 	case fsm.StateEnterDescription:
 		_, _ = h.bot.SendMessage(tu.Message(tu.ID(userId), "Ввод описания "+payload))
@@ -185,8 +199,21 @@ func (h *Handler) HandleMessage(message telego.Message) {
 			tu.ID(userId),
 			"Описание успешно сохранено",
 		))
-		h.fsm.Event(context.Background(), fsm.EventConfirm)
+		//h.fsm.Event(context.Background(), fsm.EventConfirm)
+		//h.setRedisState(context.Background(), userId)
+		err := h.fsm.Event(context.Background(), fsm.EventReset)
+		if err != nil {
+			log.Println("Error parse Date: ", err)
+		}
 		h.setRedisState(context.Background(), userId)
+
+		h.appointment.Description = description
+		err = h.srv.CreateAppointment(h.appointment)
+		if err != nil {
+			h.bot.SendMessage(tu.Message(tu.ID(userId), "Произошла ошибка cоздания записи"))
+			log.Println("Error parse Date: ", err)
+		}
+		h.appointment = nil
 	}
 }
 
