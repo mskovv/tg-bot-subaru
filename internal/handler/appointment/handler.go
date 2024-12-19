@@ -89,10 +89,14 @@ func (h *Handler) HandleCommand(update telego.Update) {
 	case "delete":
 		//h.StartAppointmentDeletion(update)
 	default:
-		h.bot.SendMessage(tu.Message(
+		_, err := h.bot.SendMessage(tu.Message(
 			tu.ID(userID),
 			"Неизвестная команда. Попробуйте снова.",
 		))
+		if err != nil {
+			log.Println("Error sending message:", err)
+			return
+		}
 	}
 }
 
@@ -130,7 +134,6 @@ func (h *Handler) StartAppointmentCreation(update telego.Update) {
 	case fsm.StateConfirmation:
 		keyboard = h.getConfirmation()
 		text = fmt.Sprintln(h.appointment)
-		//	TODO
 	default:
 		_, err := h.bot.SendMessage(tu.Message(
 			tu.ID(userID),
@@ -178,7 +181,10 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 		}
 		h.appointment.Date, err = time.Parse("02.01.2006", payload)
 		if err != nil {
-			h.bot.SendMessage(tu.Message(tu.ID(userId), "Произошла ошибка интерпритации даты"))
+			_, err = h.bot.SendMessage(tu.Message(tu.ID(userId), "Произошла ошибка интерпритации даты"))
+			if err != nil {
+				log.Println("Error sending message:", err)
+			}
 			log.Fatal("Error parse Date: ", err)
 			return
 		}
@@ -212,7 +218,11 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 			h.resetState(ctx, userId)
 		}
 		h.appointment.CarModel = payload
-		h.bot.DeleteMessage(&telego.DeleteMessageParams{MessageID: message.GetMessageID(), ChatID: chat.ChatID()})
+		err := h.bot.DeleteMessage(&telego.DeleteMessageParams{MessageID: message.GetMessageID(), ChatID: chat.ChatID()})
+		if err != nil {
+			log.Println("Error delete message:", err)
+			return
+		}
 
 		_, _ = h.bot.SendMessage(tu.Message(
 			tu.ID(userId),
@@ -224,19 +234,36 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 		if payload == "yes" {
 			err := h.srv.CreateAppointment(h.appointment)
 			if err != nil {
-				h.bot.SendMessage(tu.Message(tu.ID(userId), "Произошла ошибка cоздания записи"))
-				log.Println("Error parse Date: ", err)
+				_, err = h.bot.SendMessage(tu.Message(tu.ID(userId), "Произошла ошибка cоздания записи"))
+				if err != nil {
+					log.Println("Error sending message:", err)
+					return
+				}
+				log.Fatalln("Error create appointment: ", err)
 			}
+
+			_, err = h.bot.EditMessageReplyMarkup(&telego.EditMessageReplyMarkupParams{
+				BusinessConnectionID: "",
+				ChatID:               chat.ChatID(),
+				MessageID:            message.GetMessageID(),
+				InlineMessageID:      "",
+				ReplyMarkup:          nil,
+			})
+
 			_, _ = h.bot.SendMessage(tu.Message(
 				tu.ID(userId),
 				"Запись успешно сохранена",
 			))
-
 			h.appointment = nil
 			h.resetState(ctx, userId)
+			return
 		}
 	default:
-		h.bot.AnswerCallbackQuery(tu.CallbackQuery(callback.ID).WithText("Неизвестное действие"))
+		err := h.bot.AnswerCallbackQuery(tu.CallbackQuery(callback.ID).WithText("Неизвестное действие"))
+		if err != nil {
+			log.Println("Error answer callback:", err)
+			return
+		}
 		return
 	}
 
@@ -255,7 +282,11 @@ func (h *Handler) HandleMessage(message telego.Message) {
 			return
 		}
 
-		h.fsm.Event(context.Background(), fsm.EventConfirm)
+		err := h.fsm.Event(context.Background(), fsm.EventConfirm)
+		if err != nil {
+			log.Println("Error state.Event EventConfirm:", err)
+			h.resetState(context.Background(), userId)
+		}
 		h.setRedisState(context.Background(), userId)
 
 		h.appointment.Description = message.Text
