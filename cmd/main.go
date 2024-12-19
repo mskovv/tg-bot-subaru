@@ -22,7 +22,6 @@ func main() {
 	}
 
 	botToken := os.Getenv("TG_BOT_TOKEN")
-	redisAddr := os.Getenv("DOCKER_REDIS_PORT")
 
 	bot, err := telego.NewBot(botToken)
 	if err != nil {
@@ -36,7 +35,7 @@ func main() {
 
 	appointmentRepo := repository.NewAppointmentRepository(db)
 	appointmentService := service.NewAppointmentService(appointmentRepo)
-	redisStorage, err := storage.NewRedisStorage(redisAddr)
+	redisStorage, err := storage.NewRedisStorage()
 	fsmState := fsmstate.NewAppointmentFSM()
 	appointmentHandler := appointment.NewAppointmentHandler(appointmentService, redisStorage, bot, fsmState)
 
