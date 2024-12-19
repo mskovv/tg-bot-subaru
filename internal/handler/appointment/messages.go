@@ -1,39 +1,42 @@
 package appointment
 
 import (
+	"fmt"
 	"github.com/mskovv/tg-bot-subaru96/internal/fsm"
 	"github.com/mymmrac/telego"
 	tu "github.com/mymmrac/telego/telegoutil"
-	"log"
 	"time"
 )
 
-func (h *Handler) showCalendar(update telego.Update) {
-	userID := update.Message.Chat.ID
+func (h *Handler) getWeekCalendar(weekOffset int) *telego.InlineKeyboardMarkup {
+	now := time.Now()
 
-	var buttons []telego.InlineKeyboardButton
-	for i := 0; i < 7; i++ {
-		date := time.Now().AddDate(0, 0, i).Format("02.01.2006")
-		buttons = append(buttons, tu.InlineKeyboardButton(date).WithCallbackData(fsm.StateSelectDate+":"+date))
+	startOfWeek := now.AddDate(0, 0, -int(now.Weekday())+1)
+	startOfWeek = startOfWeek.AddDate(0, 0, 7*weekOffset)
+
+	var weekButtons [][]telego.InlineKeyboardButton
+	for i := 0; i < 5; i++ {
+		day := startOfWeek.AddDate(0, 0, i)
+		dateStr := day.Format("02.01.2006")
+		weekButtons = append(weekButtons, []telego.InlineKeyboardButton{
+			tu.InlineKeyboardButton(dateStr).
+				WithCallbackData(fsm.StateSelectDate + ":" + dateStr),
+		})
 	}
 
-	keyboard := tu.InlineKeyboardGrid(
-		tu.InlineKeyboardCols(1, buttons...),
+	navigationRow := []telego.InlineKeyboardButton{
+		tu.InlineKeyboardButton("⬅️").WithCallbackData(fmt.Sprintf("nav_week:%d", weekOffset-1)),
+		tu.InlineKeyboardButton("➡️").WithCallbackData(fmt.Sprintf("nav_week:%d", weekOffset+1)),
+	}
+	weekButtons = append(weekButtons, navigationRow)
+
+	keyboard := tu.InlineKeyboard(
+		weekButtons...,
 	)
-
-	_, err := h.bot.SendMessage(tu.Message(
-		tu.ID(userID),
-		"Выберите свободную дату для записи:",
-	).WithReplyMarkup(keyboard))
-
-	if err != nil {
-		log.Println("Error sending calendar:", err)
-		h.resetState(update.Context(), userID)
-		return
-	}
+	return keyboard
 }
 
-func (h *Handler) showTimeSelection(userId int64) {
+func (h *Handler) getTimeSelection() *telego.InlineKeyboardMarkup {
 	var buttons []telego.InlineKeyboardButton
 	timeSlots := h.createTimesSlots()
 	for _, tm := range timeSlots {
@@ -43,15 +46,7 @@ func (h *Handler) showTimeSelection(userId int64) {
 	keyboard := tu.InlineKeyboardGrid(
 		tu.InlineKeyboardCols(2, buttons...),
 	)
-
-	_, err := h.bot.SendMessage(tu.Message(
-		tu.ID(userId),
-		"Выберите свободное время для записи:",
-	).WithReplyMarkup(keyboard))
-
-	if err != nil {
-		log.Println("Error sending time selection:", err)
-	}
+	return keyboard
 }
 
 // Рабочее время с 10 до 19:30. Раннее время - 10:00, крайнее 19:00. По полчаса секции
@@ -69,7 +64,7 @@ func (h *Handler) createTimesSlots() []string {
 	return timeSlots
 }
 
-func (h *Handler) showCarMarkSelection(userId int64) {
+func (h *Handler) getCarMarkSelection() *telego.InlineKeyboardMarkup {
 	var buttons []telego.InlineKeyboardButton
 	carModels := []string{"Subaru", "Toyota", "Suzuki", "Другое"}
 	for _, cm := range carModels {
@@ -77,14 +72,10 @@ func (h *Handler) showCarMarkSelection(userId int64) {
 	}
 
 	keyboard := tu.InlineKeyboardGrid(tu.InlineKeyboardCols(3, buttons...))
-
-	_, _ = h.bot.SendMessage(tu.Message(
-		tu.ID(userId),
-		"Выберите марку:",
-	).WithReplyMarkup(keyboard))
+	return keyboard
 }
 
-func (h *Handler) showCarModelSelection(userId int64, mark string) {
+func (h *Handler) getCarModelSelection() *telego.InlineKeyboardMarkup {
 	imprezaModels := []string{
 		"GF/GC",
 		"GG/GD",
@@ -119,28 +110,22 @@ func (h *Handler) showCarModelSelection(userId int64, mark string) {
 
 	var buttons []telego.InlineKeyboardButton
 
-	for model, frames := range carModelsMarks[mark] {
+	for model, frames := range carModelsMarks[h.appointment.CarMark] {
 		for _, frame := range frames {
 			buttons = append(buttons, tu.InlineKeyboardButton(model+" "+frame).WithCallbackData(fsm.StateEnterCarModel+":"+model+" "+frame))
 		}
 	}
 
 	keyboard := tu.InlineKeyboardGrid(tu.InlineKeyboardCols(3, buttons...))
-	_, _ = h.bot.SendMessage(tu.Message(
-		tu.ID(userId),
-		"Выберите модель "+mark+":",
-	).WithReplyMarkup(keyboard))
+	return keyboard
 }
 
-func (h *Handler) showConfirmation(userId int64) {
+func (h *Handler) getConfirmation() *telego.InlineKeyboardMarkup {
 	var buttons []telego.InlineKeyboardButton
-	buttons = append(buttons, tu.InlineKeyboardButton("Подтверждаю").WithCallbackData(fsm.StateConfirmation+":"+"yes"))
-	buttons = append(buttons, tu.InlineKeyboardButton("Отмена").WithCallbackData(fsm.StateConfirmation+":"+"no"))
+	buttons = append(buttons, tu.InlineKeyboardButton("Подтверждаю ✅").WithCallbackData(fsm.StateConfirmation+":"+"yes"))
+	buttons = append(buttons, tu.InlineKeyboardButton("Отмена ✖️").WithCallbackData(fsm.StateConfirmation+":"+"no"))
 
-	keyboard := tu.InlineKeyboardGrid(tu.InlineKeyboardCols(2, buttons...))
+	keyboard := tu.InlineKeyboardGrid(tu.InlineKeyboardRows(2, buttons...))
 
-	_, _ = h.bot.SendMessage(tu.Message(
-		tu.ID(userId),
-		"Проверьте информацию и подтвердите создание записи",
-	).WithReplyMarkup(keyboard))
+	return keyboard
 }

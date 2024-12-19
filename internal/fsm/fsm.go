@@ -34,7 +34,7 @@ func NewAppointmentFSM() *fsm.FSM {
 			{Name: EventChoseCarModel, Src: []string{StateEnterCarMark}, Dst: StateEnterCarModel},
 			{Name: EventChoseDescription, Src: []string{StateEnterCarModel}, Dst: StateEnterDescription},
 			{Name: EventConfirm, Src: []string{StateEnterDescription}, Dst: StateConfirmation},
-			{Name: EventReset, Src: []string{StateStart, StateSelectDate, StateSelectTime, StateEnterCarMark, StateEnterCarModel, StateEnterDescription}, Dst: StateStart},
+			{Name: EventReset, Src: []string{StateStart, StateSelectDate, StateSelectTime, StateEnterCarMark, StateEnterCarModel, StateEnterDescription, StateConfirmation}, Dst: StateStart},
 		},
 		nil,
 	)
