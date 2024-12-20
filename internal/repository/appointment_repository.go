@@ -5,6 +5,7 @@ import (
 	"github.com/mskovv/tg-bot-subaru96/internal/database"
 	"github.com/mskovv/tg-bot-subaru96/internal/models"
 	"gorm.io/gorm"
+	"time"
 )
 
 type AppointmentRepository struct {
@@ -23,6 +24,20 @@ func (r *AppointmentRepository) GetAppointmentById(id int) (*models.Appointment,
 	var ap models.Appointment
 	err := r.db.First(&ap, id).Error
 	return &ap, err
+}
+
+func (r *AppointmentRepository) GetAppointmentsOnWeek(startWeek time.Time) ([]models.Appointment, error) {
+	var ap []models.Appointment
+	endWeek := startWeek.AddDate(0, 0, 5)
+	err := r.db.Where("date >= ? AND date < ?", startWeek, endWeek).Find(&ap).Error
+	return ap, err
+}
+
+func (r *AppointmentRepository) GetAppointmentsOnDate(date time.Time) ([]models.Appointment, error) {
+	var ap []models.Appointment
+	err := r.db.Select("date, time AT TIME ZONE 'UTC' AS time, car_mark, car_model, description").
+		Where("DATE(date) = ?", date).Find(&ap).Error
+	return ap, err
 }
 
 func (r *AppointmentRepository) RemoveAppointment(appointmentId uint) error {

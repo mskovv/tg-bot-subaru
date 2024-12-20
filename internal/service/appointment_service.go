@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/mskovv/tg-bot-subaru96/internal/models"
 	"github.com/mskovv/tg-bot-subaru96/internal/repository"
+	"time"
 )
 
 type AppointmentService struct {
@@ -15,6 +16,14 @@ func NewAppointmentService(repo *repository.AppointmentRepository) *AppointmentS
 
 func (s *AppointmentService) UpdateAppointment(appointment *models.Appointment) error {
 	return s.repo.UpdateAppointment(appointment)
+}
+
+func (s *AppointmentService) GetAppointmentsOnWeek(startWeek time.Time) ([]models.Appointment, error) {
+	return s.repo.GetAppointmentsOnWeek(startWeek)
+}
+
+func (s *AppointmentService) GetAppointmentsOnDate(date time.Time) ([]models.Appointment, error) {
+	return s.repo.GetAppointmentsOnDate(date)
 }
 
 func (s *AppointmentService) GetAppointmentsById(id int) (*models.Appointment, error) {

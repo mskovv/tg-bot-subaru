@@ -15,12 +15,25 @@ func (h *Handler) getWeekCalendar(weekOffset int) *telego.InlineKeyboardMarkup {
 	startOfWeek := now.AddDate(0, 0, -int(now.Weekday())+1)
 	startOfWeek = startOfWeek.AddDate(0, 0, 7*weekOffset)
 
+	appointments, err := h.appointmentSrv.GetAppointmentsOnWeek(startOfWeek)
+	if err != nil {
+		log.Fatalln("Failed to get GetAppointmentsOnWeek: ", err)
+	}
+
+	appointmentsCount := make(map[string]int)
+	for _, appointment := range appointments {
+		dateStr := appointment.Date.Format("02.01.2006")
+		appointmentsCount[dateStr]++
+	}
+
 	var weekButtons [][]telego.InlineKeyboardButton
 	for i := 0; i < 5; i++ {
 		day := startOfWeek.AddDate(0, 0, i)
 		dateStr := day.Format("02.01.2006")
+		count := appointmentsCount[dateStr]
+		buttonText := fmt.Sprintf("%s - %d зап.", dateStr, count)
 		weekButtons = append(weekButtons, []telego.InlineKeyboardButton{
-			tu.InlineKeyboardButton(dateStr).
+			tu.InlineKeyboardButton(buttonText).
 				WithCallbackData(fsm.StateSelectDate + ":" + dateStr),
 		})
 	}
@@ -39,9 +52,23 @@ func (h *Handler) getWeekCalendar(weekOffset int) *telego.InlineKeyboardMarkup {
 
 func (h *Handler) getTimeSelection() *telego.InlineKeyboardMarkup {
 	var buttons []telego.InlineKeyboardButton
+
+	appointments, err := h.appointmentSrv.GetAppointmentsOnDate(h.appointment.Date)
+	if err != nil {
+		log.Fatalln("Failed to get GetAppointmentsOnWeek: ", err)
+	}
+
+	appointmentsCount := make(map[string]int)
+	for _, appointment := range appointments {
+		timeStr := appointment.Time.Format("15:04")
+		appointmentsCount[timeStr]++
+	}
+
 	timeSlots := h.createTimesSlots()
 	for _, tm := range timeSlots {
-		buttons = append(buttons, tu.InlineKeyboardButton(tm).WithCallbackData(fsm.StateSelectTime+":"+tm))
+		count := appointmentsCount[tm]
+		buttonText := fmt.Sprintf("%s - %d зап.", tm, count)
+		buttons = append(buttons, tu.InlineKeyboardButton(buttonText).WithCallbackData(fsm.StateSelectTime+":"+tm))
 	}
 
 	keyboard := tu.InlineKeyboardGrid(
@@ -59,7 +86,7 @@ func (h *Handler) createTimesSlots() []string {
 	var timeSlots []string
 
 	for t := startTime; t.Before(endTime) || t.Equal(endTime); t = t.Add(interval) {
-		timeSlots = append(timeSlots, t.Format("15:04")) // Форматируем время в строку "HH:MM"
+		timeSlots = append(timeSlots, t.Format("15:04"))
 	}
 
 	return timeSlots
@@ -76,7 +103,7 @@ func (h *Handler) getCarMarkSelection() *telego.InlineKeyboardMarkup {
 		buttons = append(buttons, tu.InlineKeyboardButton(cm).WithCallbackData(fsm.StateEnterCarMark+":"+cm))
 	}
 
-	buttons = append(buttons, tu.InlineKeyboardButton("Другое(Пока не жмакать)").WithCallbackData(fsm.StateEnterCarMark+":other"))
+	//buttons = append(buttons, tu.InlineKeyboardButton("Другое(Пока не жмакать)").WithCallbackData(fsm.StateEnterCarMark+":other"))
 	//TODO
 	keyboard := tu.InlineKeyboardGrid(tu.InlineKeyboardCols(3, buttons...))
 	return keyboard

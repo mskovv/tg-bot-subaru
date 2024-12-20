@@ -179,14 +179,7 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 			return
 		}
 	case fsm.StateSelectDate:
-		keyboard := h.getTimeSelection()
-		h.editReplyMarkupMessage(callback, keyboard, "Выберите свободное время для записи")
-
-		err := h.fsm.Event(ctx, fsm.EventChoseTime)
-		if err != nil {
-			log.Println("Error state.Event EventChoseTime:", err)
-			h.resetState(ctx, userId)
-		}
+		var err error
 		h.appointment.Date, err = time.Parse("02.01.2006", payload)
 		if err != nil {
 			_, err = h.bot.SendMessage(tu.Message(tu.ID(userId), "Произошла ошибка интерпритации даты"))
@@ -195,6 +188,15 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 			}
 			log.Fatal("Error parse Date: ", err)
 			return
+		}
+
+		keyboard := h.getTimeSelection()
+		h.editReplyMarkupMessage(callback, keyboard, "Выберите свободное время для записи")
+
+		err = h.fsm.Event(ctx, fsm.EventChoseTime)
+		if err != nil {
+			log.Println("Error state.Event EventChoseTime:", err)
+			h.resetState(ctx, userId)
 		}
 	case fsm.StateSelectTime:
 		err := h.fsm.Event(ctx, fsm.EventChoseCarMark)
