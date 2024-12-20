@@ -5,6 +5,7 @@ import (
 	"github.com/mskovv/tg-bot-subaru96/internal/fsm"
 	"github.com/mymmrac/telego"
 	tu "github.com/mymmrac/telego/telegoutil"
+	"log"
 	"time"
 )
 
@@ -65,55 +66,32 @@ func (h *Handler) createTimesSlots() []string {
 }
 
 func (h *Handler) getCarMarkSelection() *telego.InlineKeyboardMarkup {
+	carMarks, err := h.carDictionarySrv.GetAllMarks()
+	if err != nil {
+		log.Fatalln("Failed to get carMarks: ", err)
+	}
+
 	var buttons []telego.InlineKeyboardButton
-	carModels := []string{"Subaru", "Toyota", "Suzuki", "Другое"}
-	for _, cm := range carModels {
+	for _, cm := range carMarks {
 		buttons = append(buttons, tu.InlineKeyboardButton(cm).WithCallbackData(fsm.StateEnterCarMark+":"+cm))
 	}
 
+	buttons = append(buttons, tu.InlineKeyboardButton("Другое(Пока не жмакать)").WithCallbackData(fsm.StateEnterCarMark+":other"))
+	//TODO
 	keyboard := tu.InlineKeyboardGrid(tu.InlineKeyboardCols(3, buttons...))
 	return keyboard
 }
 
 func (h *Handler) getCarModelSelection() *telego.InlineKeyboardMarkup {
-	imprezaModels := []string{
-		"GF/GC",
-		"GG/GD",
-		"GH/GЕ",
-		"GJ",
-		"GR/GV",
-		"GP/GJ",
-		"GP(XV)",
-	}
-	foresterModels := []string{
-		"SF",
-		"SG",
-		"SH",
-		"SJ",
-		"SK",
-	}
-	outbackModels := []string{
-		"BG",
-		"BH-BHE",
-		"BP9-BPE",
-		"BM9-BR9",
-		"BS",
-	}
-
-	subaruModels := make(map[string][]string)
-	subaruModels["Impeza"] = imprezaModels
-	subaruModels["Forester"] = foresterModels
-	subaruModels["Outback"] = outbackModels
-
-	carModelsMarks := make(map[string]map[string][]string)
-	carModelsMarks["Subaru"] = subaruModels
-
 	var buttons []telego.InlineKeyboardButton
 
-	for model, frames := range carModelsMarks[h.appointment.CarMark] {
-		for _, frame := range frames {
-			buttons = append(buttons, tu.InlineKeyboardButton(model+" "+frame).WithCallbackData(fsm.StateEnterCarModel+":"+model+" "+frame))
-		}
+	carModels, err := h.carDictionarySrv.GetAllModelsByMark(h.appointment.CarMark)
+	if err != nil {
+		log.Fatalln("Failed to get carModels: ", err)
+	}
+
+	for _, frames := range carModels {
+		buttons = append(buttons, tu.InlineKeyboardButton(frames.CarModel).WithCallbackData(fsm.StateEnterCarModel+":"+frames.CarModel))
 	}
 
 	keyboard := tu.InlineKeyboardGrid(tu.InlineKeyboardCols(3, buttons...))

@@ -17,19 +17,27 @@ import (
 )
 
 type Handler struct {
-	srv         *service.AppointmentService
-	storage     *storage.RedisStorage
-	bot         *telego.Bot
-	fsm         *fsmstate.FSM
-	appointment *models.Appointment
+	appointmentSrv   *service.AppointmentService
+	carDictionarySrv *service.CarDictionaryService
+	storage          *storage.RedisStorage
+	bot              *telego.Bot
+	fsm              *fsmstate.FSM
+	appointment      *models.Appointment
 }
 
-func NewAppointmentHandler(srv *service.AppointmentService, storage *storage.RedisStorage, bot *telego.Bot, fsm *fsmstate.FSM) *Handler {
+func NewAppointmentHandler(
+	appointmentSrv *service.AppointmentService,
+	carDictionarySrv *service.CarDictionaryService,
+	storage *storage.RedisStorage,
+	bot *telego.Bot,
+	fsm *fsmstate.FSM,
+) *Handler {
 	return &Handler{
-		srv:     srv,
-		storage: storage,
-		bot:     bot,
-		fsm:     fsm,
+		appointmentSrv:   appointmentSrv,
+		carDictionarySrv: carDictionarySrv,
+		storage:          storage,
+		bot:              bot,
+		fsm:              fsm,
 	}
 }
 
@@ -232,7 +240,7 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 	//case fsm.StateEnterDescription: // UNUSED
 	case fsm.StateConfirmation:
 		if payload == "yes" {
-			err := h.srv.CreateAppointment(h.appointment)
+			err := h.appointmentSrv.CreateAppointment(h.appointment)
 			if err != nil {
 				_, err = h.bot.SendMessage(tu.Message(tu.ID(userId), "Произошла ошибка cоздания записи"))
 				if err != nil {

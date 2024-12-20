@@ -35,14 +35,19 @@ func main() {
 
 	appointmentRepo := repository.NewAppointmentRepository(db)
 	appointmentService := service.NewAppointmentService(appointmentRepo)
+
+	carDictionaryRepo := repository.NewCarDictionaryRepository(db)
+	carDictionaryService := service.NewCarDictionaryService(carDictionaryRepo)
+
 	redisStorage, err := storage.NewRedisStorage()
 	fsmState := fsmstate.NewAppointmentFSM()
-	appointmentHandler := appointment.NewAppointmentHandler(appointmentService, redisStorage, bot, fsmState)
+	appointmentHandler := appointment.NewAppointmentHandler(appointmentService, carDictionaryService, redisStorage, bot, fsmState)
 
 	commands := []telego.BotCommand{
 		{Command: "create_appointment", Description: "Создать запись"},
+		{Command: "view_appointment", Description: "Посмотреть записи"},
 		{Command: "update_appointment", Description: "Обновить запись"},
-		{Command: "start", Description: "Запустить бота"},
+		{Command: "start", Description: "Запустить бота/Сбросить"},
 	}
 	err = bot.SetMyCommands(&telego.SetMyCommandsParams{Commands: commands})
 	if err != nil {

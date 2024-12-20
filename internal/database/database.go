@@ -40,12 +40,13 @@ func ConnectDb() *gorm.DB {
 	DB.Logger = logger.Default.LogMode(logger.Info)
 
 	log.Println("running migrations")
-	err = DB.AutoMigrate(&models.User{}, &models.Appointment{})
+	err = DB.AutoMigrate(&models.User{}, &models.Appointment{}, &models.CarDictionary{})
 	if err != nil {
 		log.Fatal("Failed execute migrate. \n", err)
 	}
 
 	migrations.AddInitialUser(DB)
+	migrations.CreateCarDictionary(DB)
 	log.Println("end migrations")
 
 	return DB
