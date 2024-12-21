@@ -29,7 +29,7 @@ func (r *AppointmentRepository) GetAppointmentById(id int) (*models.Appointment,
 func (r *AppointmentRepository) GetAppointmentsOnWeek(startWeek time.Time) ([]models.Appointment, error) {
 	var ap []models.Appointment
 	endWeek := startWeek.AddDate(0, 0, 5)
-	err := r.db.Where("date >= ? AND date < ?", startWeek, endWeek).Find(&ap).Error
+	err := r.db.Where("date >= ? AND date < ?", startWeek.Format("2006-01-02"), endWeek.Format("2006-01-02")).Find(&ap).Error
 	return ap, err
 }
 
