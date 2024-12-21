@@ -17,7 +17,7 @@ type Appointment struct {
 
 func (a Appointment) String() string {
 	return fmt.Sprintf(
-		"Дата: %s\nВремя: %s\nМарка: %s\nМодель: %s\nЗадача: %s",
+		"Дата: %s\nВремя: %s\nМарка: %s\nМодель: %s\nОписание: %s\n",
 		a.Date.Format("2006-01-02"),
 		a.Time.Format("15:04"),
 		a.CarMark,

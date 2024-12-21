@@ -3,9 +3,11 @@ package appointment
 import (
 	"fmt"
 	"github.com/mskovv/tg-bot-subaru96/internal/fsm"
+	"github.com/mskovv/tg-bot-subaru96/internal/models"
 	"github.com/mymmrac/telego"
 	tu "github.com/mymmrac/telego/telegoutil"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -27,6 +29,7 @@ func (h *Handler) getWeekCalendar(weekOffset int) *telego.InlineKeyboardMarkup {
 	}
 
 	var weekButtons [][]telego.InlineKeyboardButton
+	currentState := h.fsm.Current()
 	for i := 0; i < 5; i++ {
 		day := startOfWeek.AddDate(0, 0, i)
 		dateStr := day.Format("02.01.2006")
@@ -34,7 +37,7 @@ func (h *Handler) getWeekCalendar(weekOffset int) *telego.InlineKeyboardMarkup {
 		buttonText := fmt.Sprintf("%s - %d зап.", dateStr, count)
 		weekButtons = append(weekButtons, []telego.InlineKeyboardButton{
 			tu.InlineKeyboardButton(buttonText).
-				WithCallbackData(fsm.StateSelectDate + ":" + dateStr),
+				WithCallbackData(currentState + ":" + dateStr),
 		})
 	}
 
@@ -133,4 +136,26 @@ func (h *Handler) getConfirmation() *telego.InlineKeyboardMarkup {
 	keyboard := tu.InlineKeyboardGrid(tu.InlineKeyboardRows(2, buttons...))
 
 	return keyboard
+}
+
+func (h *Handler) FormatAppointmentsOnDate(appointments []models.Appointment) string {
+	if len(appointments) == 0 {
+		return "Нет записей на выбранный день."
+	}
+
+	var sb strings.Builder
+	for i, appointment := range appointments {
+		sb.WriteString(fmt.Sprintf(
+			"Время: %s\nМарка: %s\nМодель: %s\nОписание: %s\n",
+			appointment.Time.Format("15:04"),
+			appointment.CarMark,
+			appointment.CarModel,
+			appointment.Description,
+		))
+
+		if i < len(appointments)-1 {
+			sb.WriteString("\n")
+		}
+	}
+	return sb.String()
 }

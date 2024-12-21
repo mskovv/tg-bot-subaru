@@ -12,6 +12,7 @@ const (
 	StateEnterCarMark     = "enter_car_mark"
 	StateEnterDescription = "enter_description"
 	StateConfirmation     = "confirmation"
+	StateViewDate         = "view_date"
 )
 
 const (
@@ -22,6 +23,7 @@ const (
 	EventChoseDescription = "enter_description"
 	EventConfirm          = "confirm"
 	EventReset            = "reset"
+	EventViewDate         = "view_date"
 )
 
 func NewAppointmentFSM() *fsm.FSM {
@@ -34,7 +36,16 @@ func NewAppointmentFSM() *fsm.FSM {
 			{Name: EventChoseCarModel, Src: []string{StateEnterCarMark}, Dst: StateEnterCarModel},
 			{Name: EventChoseDescription, Src: []string{StateEnterCarModel}, Dst: StateEnterDescription},
 			{Name: EventConfirm, Src: []string{StateEnterDescription}, Dst: StateConfirmation},
-			{Name: EventReset, Src: []string{StateStart, StateSelectDate, StateSelectTime, StateEnterCarMark, StateEnterCarModel, StateEnterDescription, StateConfirmation}, Dst: StateStart},
+			{Name: EventReset, Src: []string{StateStart,
+				StateSelectDate,
+				StateSelectTime,
+				StateEnterCarMark,
+				StateEnterCarModel,
+				StateEnterDescription,
+				StateConfirmation,
+				StateViewDate},
+				Dst: StateStart},
+			{Name: EventViewDate, Src: []string{StateStart}, Dst: StateViewDate},
 		},
 		nil,
 	)

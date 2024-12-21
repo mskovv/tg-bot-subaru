@@ -41,15 +41,15 @@ func NewAppointmentHandler(
 	}
 }
 
-func (h *Handler) sendMessageWithReplyMarkup(userID int64, keyboard *telego.InlineKeyboardMarkup, text string) {
+func (h *Handler) sendMessageWithReplyMarkup(userId int64, keyboard *telego.InlineKeyboardMarkup, text string) {
 	_, err := h.bot.SendMessage(tu.Message(
-		tu.ID(userID),
+		tu.ID(userId),
 		text,
 	).WithReplyMarkup(keyboard))
 
 	if err != nil {
 		log.Println("Error sending calendar:", err)
-		h.resetState(context.Background(), userID)
+		h.resetState(context.Background(), userId)
 		return
 	}
 }
@@ -83,7 +83,7 @@ func (h *Handler) editReplyMarkupMessage(callback telego.CallbackQuery, keyboard
 }
 
 func (h *Handler) HandleCommand(update telego.Update) {
-	userID := update.Message.From.ID
+	userId := update.Message.From.ID
 	command := update.Message.Text
 	if h.appointment == nil {
 		h.appointment = &models.Appointment{}
@@ -91,14 +91,17 @@ func (h *Handler) HandleCommand(update telego.Update) {
 
 	switch command {
 	case "/create_appointment":
-		h.StartAppointmentCreation(update)
+		h.startAppointmentCreation(update)
 	case "update":
 		//h.StartAppointmentUpdate(update)
 	case "delete":
 		//h.StartAppointmentDeletion(update)
+	case "/view_appointments":
+		h.resetState(context.Background(), userId)
+		h.viewAppointments(update)
 	default:
 		_, err := h.bot.SendMessage(tu.Message(
-			tu.ID(userID),
+			tu.ID(userId),
 			"Неизвестная команда. Попробуйте снова.",
 		))
 		if err != nil {
@@ -108,14 +111,31 @@ func (h *Handler) HandleCommand(update telego.Update) {
 	}
 }
 
-func (h *Handler) StartAppointmentCreation(update telego.Update) {
-	userID := update.Message.Chat.ID
+func (h *Handler) viewAppointments(update telego.Update) {
+	userId := update.Message.Chat.ID
+	ctx := context.Background()
+
+	err := h.fsm.Event(ctx, fsm.EventViewDate)
+	if err != nil {
+		log.Println("Error state.Event EventViewDate:", err)
+		h.resetState(ctx, userId)
+	}
+	h.setRedisState(ctx, userId)
+
+	keyboard := h.getWeekCalendar(0)
+	text := "Выберите дату для просмотра:"
+	h.sendMessageWithReplyMarkup(userId, keyboard, text)
+}
+
+func (h *Handler) startAppointmentCreation(update telego.Update) {
+	userId := update.Message.Chat.ID
+	ctx := context.Background()
 
 	currentState := h.fsm.Current()
 
-	if currentState == "" {
+	if currentState == "" || currentState == fsm.StateViewDate {
 		h.fsm.SetState(fsm.StateStart)
-		h.setRedisState(update.Context(), userID)
+		h.setRedisState(update.Context(), userId)
 	}
 
 	text := ""
@@ -123,9 +143,19 @@ func (h *Handler) StartAppointmentCreation(update telego.Update) {
 
 	switch currentState {
 	case fsm.StateStart:
+		err := h.fsm.Event(ctx, fsm.EventChoseDate)
+		if err != nil {
+			log.Println("Error state.Event EventChoseDate:", err)
+			h.resetState(ctx, userId)
+		}
 		keyboard = h.getWeekCalendar(0)
 		text = "Выберите свободную дату для записи:"
 	case fsm.StateSelectDate:
+		err := h.fsm.Event(ctx, fsm.EventChoseDate)
+		if err != nil {
+			log.Println("Error state.Event EventChoseDate:", err)
+			h.resetState(ctx, userId)
+		}
 		keyboard = h.getWeekCalendar(0)
 		text = "Выберите свободную дату для записи:"
 	case fsm.StateSelectTime:
@@ -138,29 +168,33 @@ func (h *Handler) StartAppointmentCreation(update telego.Update) {
 		keyboard = h.getCarModelSelection()
 		text = "Выберите модель " + h.appointment.CarMark + ":"
 	case fsm.StateEnterDescription:
-	//	TODO
+		_, _ = h.bot.SendMessage(tu.Message(
+			tu.ID(userId),
+			"Отправьте описание необходимых действий",
+		))
+		break
 	case fsm.StateConfirmation:
 		keyboard = h.getConfirmation()
 		text = fmt.Sprintln(h.appointment)
 	default:
 		_, err := h.bot.SendMessage(tu.Message(
-			tu.ID(userID),
+			tu.ID(userId),
 			"Неизвестное состояние. Начинаем сначала.",
 		))
 		if err != nil {
 			log.Println("Error sending message:", err)
 			return
 		}
-		h.resetState(update.Context(), userID)
+		h.resetState(update.Context(), userId)
 	}
 
-	h.sendMessageWithReplyMarkup(userID, keyboard, text)
-	h.setRedisState(update.Context(), userID)
+	h.sendMessageWithReplyMarkup(userId, keyboard, text)
+	h.setRedisState(update.Context(), userId)
 }
 
 func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 	state, payload := parseCallbackData(callback.Data)
-	fmt.Println("state: ", state, "payload: ", payload)
+	//fmt.Println("state: ", state, "payload: ", payload)
 	ctx := context.Background()
 	message := callback.Message
 	chat := message.GetChat()
@@ -178,6 +212,21 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 			log.Println("Error edit message:", err)
 			return
 		}
+	case fsm.StateViewDate:
+		h.editReplyMarkupMessage(callback, nil, "Выбранная дата: "+payload)
+		date, _ := time.Parse("02.01.2006", payload)
+		appointments, _ := h.appointmentSrv.GetAppointmentsOnDate(date)
+		formattedText := h.FormatAppointmentsOnDate(appointments)
+		_, err := h.bot.SendMessage(tu.Message(tu.ID(userId), formattedText))
+		if err != nil {
+			log.Println("Error sending message:", err)
+		}
+		err = h.fsm.Event(ctx, fsm.EventReset)
+		if err != nil {
+			log.Println("Error state.Event EventReset:", err)
+			h.resetState(ctx, userId)
+		}
+		h.setRedisState(ctx, userId)
 	case fsm.StateSelectDate:
 		var err error
 		h.appointment.Date, err = time.Parse("02.01.2006", payload)
@@ -238,7 +287,6 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 			tu.ID(userId),
 			"Отправьте описание необходимых действий",
 		))
-
 	//case fsm.StateEnterDescription: // UNUSED
 	case fsm.StateConfirmation:
 		if payload == "yes" {
@@ -252,13 +300,7 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 				log.Fatalln("Error create appointment: ", err)
 			}
 
-			_, err = h.bot.EditMessageReplyMarkup(&telego.EditMessageReplyMarkupParams{
-				BusinessConnectionID: "",
-				ChatID:               chat.ChatID(),
-				MessageID:            message.GetMessageID(),
-				InlineMessageID:      "",
-				ReplyMarkup:          nil,
-			})
+			h.deleteReplyOnMessage(message)
 
 			_, _ = h.bot.SendMessage(tu.Message(
 				tu.ID(userId),
@@ -266,6 +308,11 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 			))
 			h.appointment = nil
 			h.resetState(ctx, userId)
+			return
+		} else if payload == "no" {
+			h.appointment = nil
+			h.resetState(ctx, userId)
+			h.deleteReplyOnMessage(message)
 			return
 		}
 	default:
@@ -278,6 +325,19 @@ func (h *Handler) HandleCallback(callback telego.CallbackQuery) {
 	}
 
 	h.setRedisState(ctx, userId)
+}
+
+func (h *Handler) deleteReplyOnMessage(message telego.MaybeInaccessibleMessage) {
+	chat := message.GetChat()
+
+	_, _ = h.bot.EditMessageReplyMarkup(&telego.EditMessageReplyMarkupParams{
+		BusinessConnectionID: "",
+		ChatID:               chat.ChatID(),
+		MessageID:            message.GetMessageID(),
+		InlineMessageID:      "",
+		ReplyMarkup:          nil,
+	})
+
 }
 
 func (h *Handler) HandleMessage(message telego.Message) {
@@ -319,17 +379,18 @@ func (h *Handler) resetState(ctx context.Context, userId int64) {
 }
 
 func (h *Handler) SendStartMessage(update telego.Update) {
-	userID := update.Message.Chat.ID
+	userId := update.Message.Chat.ID
 	err := h.fsm.Event(update.Context(), fsm.EventReset)
 	if err != nil {
 		log.Println("Error state.Event:", err)
-		h.resetState(update.Context(), userID)
+		h.resetState(update.Context(), userId)
 	}
-	h.setRedisState(update.Context(), userID)
-	err = h.SendMessage(update, "Состояние сброшено, выберите команду из меню")
+	h.setRedisState(update.Context(), userId)
+	_, err = h.bot.SendMessage(tu.Message(tu.ID(userId), "Состояние сброшено, выберите команду из меню"))
 	if err != nil {
-		err = h.SendMessage(update, "Произошла ошибка при отправке сообщения. Попробуйте снова.")
+		_, err = h.bot.SendMessage(tu.Message(tu.ID(userId), "Произошла ошибка при отправке сообщения. Попробуйте снова."))
 		if err != nil {
+			log.Println(err)
 			return
 		}
 	}
@@ -348,13 +409,4 @@ func parseCallbackData(data string) (state, payload string) {
 		return parts[0], parts[1]
 	}
 	return data, ""
-}
-
-func (h *Handler) SendMessage(update telego.Update, message string) error {
-	_, err := h.bot.SendMessage(tu.Message(
-		tu.ID(update.Message.Chat.ID),
-		message,
-	))
-
-	return err
 }

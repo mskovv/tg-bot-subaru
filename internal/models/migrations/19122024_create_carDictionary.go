@@ -57,9 +57,4 @@ func CreateCarDictionary(db *gorm.DB) {
 	} else {
 		log.Println("Словарь успешно загружен")
 	}
-	//if err := db.FirstOrCreate(&cars).Error; err != nil {
-	//	log.Fatalf("Не удалось добавить Словарь: %v", err)
-	//} else {
-	//	log.Println("Словарь успешно загружен")
-	//}
 }

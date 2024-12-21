@@ -45,7 +45,7 @@ func main() {
 
 	commands := []telego.BotCommand{
 		{Command: "create_appointment", Description: "Создать запись"},
-		{Command: "view_appointment", Description: "Посмотреть записи"},
+		{Command: "view_appointments", Description: "Посмотреть записи"},
 		{Command: "update_appointment", Description: "Обновить запись"},
 		{Command: "start", Description: "Запустить бота/Сбросить"},
 	}
