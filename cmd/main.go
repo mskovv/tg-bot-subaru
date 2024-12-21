@@ -22,6 +22,7 @@ func main() {
 	}
 
 	botToken := os.Getenv("TG_BOT_TOKEN")
+	envMode := os.Getenv("ENV_MODE")
 
 	bot, err := telego.NewBot(botToken)
 	if err != nil {
@@ -53,13 +54,41 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if envMode == "dev" {
 
-	updates, _ := bot.UpdatesViaLongPolling(nil)
+		updates, _ := bot.UpdatesViaLongPolling(nil)
 
-	bh, _ := th.NewBotHandler(bot, updates)
-	defer bh.Stop()
-	defer bot.StopLongPolling()
+		bh, _ := th.NewBotHandler(bot, updates)
+		defer bh.Stop()
+		defer bot.StopLongPolling()
 
+		setupHandlers(bh, appointmentHandler)
+		bh.Start()
+	} else if envMode == "prod" {
+		webhookURL := os.Getenv("WEBHOOK_URL") // URL для вебхука
+		err = bot.SetWebhook(&telego.SetWebhookParams{
+			URL: webhookURL,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Printf("Webhook set to: %s", webhookURL)
+
+		updates, err := bot.UpdatesViaWebhook("/bot/webhook") // Путь для вебхука
+		if err != nil {
+			log.Fatal(err)
+		}
+		bh, _ := th.NewBotHandler(bot, updates)
+		defer bh.Stop()
+
+		setupHandlers(bh, appointmentHandler)
+		bh.Start()
+	}
+
+}
+
+func setupHandlers(bh *th.BotHandler, appointmentHandler *appointment.Handler) {
 	bh.Handle(func(bot *telego.Bot, update telego.Update) {
 		appointmentHandler.SendStartMessage(update)
 	}, th.CommandEqual("start"))
@@ -75,7 +104,4 @@ func main() {
 	bh.HandleCallbackQuery(func(bot *telego.Bot, callbackQuery telego.CallbackQuery) {
 		appointmentHandler.HandleCallback(callbackQuery)
 	}, th.AnyCallbackQuery())
-
-	bh.Start()
-
 }
