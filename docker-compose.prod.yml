@@ -10,8 +10,6 @@ services:
       - .env
     ports:
         - ${DOCKER_APP_PORT}:9000
-    volumes:
-      - .:/usr/src/app
     command: ./app
     labels:
       - "traefik.enable=true"

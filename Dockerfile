@@ -1,13 +1,23 @@
-FROM golang:1.23.2
+FROM golang:1.23.2 AS builder
 
 WORKDIR /usr/src/app
 
-RUN go install github.com/air-verse/air@latest
+
+COPY go.mod go.sum ./
+RUN go mod download
 
 COPY . .
-RUN go mod tidy
 
-ARG APP_PORT
-ENV APP_PORT=${DOCKER_APP_PORT}
+RUN go build -o app ./cmd/main.go
 
-EXPOSE ${APP_PORT}
+FROM golang:1.23.2
+
+WORKDIR /usr/src/app
+RUN go install github.com/air-verse/air@latest
+
+
+COPY --from=builder /usr/src/app/app .
+COPY . .
+
+EXPOSE 9000
+CMD ["./app"]

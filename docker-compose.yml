@@ -10,8 +10,8 @@ services:
       - .env
     ports:
         - ${DOCKER_APP_PORT}:9000
-    volumes:
-      - .:/usr/src/app
+#    volumes:
+#      - .:/usr/src/app
     command: air ./cmd/main.go -b 0.0.0.0
     environment:
       - TZ=Asia/Yekaterinburg
