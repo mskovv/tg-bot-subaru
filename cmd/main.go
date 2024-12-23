@@ -67,7 +67,7 @@ func main() {
 	} else if envMode == "prod" {
 		webhookURL := os.Getenv("WEBHOOK_URL") // URL для вебхука
 		err = bot.SetWebhook(&telego.SetWebhookParams{
-			URL: webhookURL,
+			URL: webhookURL + bot.Token(),
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -75,7 +75,15 @@ func main() {
 
 		log.Printf("Webhook set to: %s", webhookURL)
 
-		updates, err := bot.UpdatesViaWebhook("/bot/webhook") // Путь для вебхука
+		go func() {
+			_ = bot.StartWebhook("localhost:443")
+		}()
+
+		defer func() {
+			_ = bot.StopWebhook()
+		}()
+
+		updates, err := bot.UpdatesViaWebhook("/bot" + bot.Token()) // Путь для вебхука
 		if err != nil {
 			log.Fatal(err)
 		}
