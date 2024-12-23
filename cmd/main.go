@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/mskovv/tg-bot-subaru96/internal/database"
 	fsmstate "github.com/mskovv/tg-bot-subaru96/internal/fsm"
@@ -65,25 +66,31 @@ func main() {
 		setupHandlers(bh, appointmentHandler)
 		bh.Start()
 	} else if envMode == "prod" {
-		webhookURL := os.Getenv("WEBHOOK_URL") // URL для вебхука
+		webhookURL := os.Getenv("WEBHOOK_URL") + bot.Token() // URL для вебхука
 		err = bot.SetWebhook(&telego.SetWebhookParams{
-			URL: webhookURL + bot.Token(),
+			URL: webhookURL,
 		})
 		if err != nil {
+			fmt.Println(bot.GetWebhookInfo())
 			log.Fatal(err)
 		}
 
 		log.Printf("Webhook set to: %s", webhookURL)
 
 		go func() {
-			_ = bot.StartWebhook("localhost:443")
+			err = bot.StartWebhook("localhost:443")
+			if err != nil {
+				webhook, _ := bot.GetWebhookInfo()
+				fmt.Println("webhook", webhook)
+				log.Fatal(err)
+			}
 		}()
 
 		defer func() {
 			_ = bot.StopWebhook()
 		}()
 
-		updates, err := bot.UpdatesViaWebhook("/bot" + bot.Token()) // Путь для вебхука
+		updates, err := bot.UpdatesViaWebhook(webhookURL) // Путь для вебхука
 		if err != nil {
 			log.Fatal(err)
 		}
