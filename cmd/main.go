@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/mskovv/tg-bot-subaru96/internal/database"
 	fsmstate "github.com/mskovv/tg-bot-subaru96/internal/fsm"
@@ -23,7 +22,6 @@ func main() {
 	}
 
 	botToken := os.Getenv("TG_BOT_TOKEN")
-	envMode := os.Getenv("ENV_MODE")
 
 	bot, err := telego.NewBot(botToken)
 	if err != nil {
@@ -55,51 +53,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if envMode == "dev" {
 
-		updates, _ := bot.UpdatesViaLongPolling(nil)
+	updates, _ := bot.UpdatesViaLongPolling(nil)
 
-		bh, _ := th.NewBotHandler(bot, updates)
-		defer bh.Stop()
-		defer bot.StopLongPolling()
+	bh, _ := th.NewBotHandler(bot, updates)
+	defer bh.Stop()
+	defer bot.StopLongPolling()
 
-		setupHandlers(bh, appointmentHandler)
-		bh.Start()
-	} else if envMode == "prod" {
-		webhookURL := os.Getenv("WEBHOOK_URL") + bot.Token() // URL для вебхука
-		err = bot.SetWebhook(&telego.SetWebhookParams{
-			URL: webhookURL,
-		})
-		if err != nil {
-			fmt.Println(bot.GetWebhookInfo())
-			log.Fatal(err)
-		}
-
-		log.Printf("Webhook set to: %s", webhookURL)
-
-		go func() {
-			err = bot.StartWebhook("localhost:443")
-			if err != nil {
-				webhook, _ := bot.GetWebhookInfo()
-				fmt.Println("webhook", webhook)
-				log.Fatal(err)
-			}
-		}()
-
-		defer func() {
-			_ = bot.StopWebhook()
-		}()
-
-		updates, err := bot.UpdatesViaWebhook(webhookURL) // Путь для вебхука
-		if err != nil {
-			log.Fatal(err)
-		}
-		bh, _ := th.NewBotHandler(bot, updates)
-		defer bh.Stop()
-
-		setupHandlers(bh, appointmentHandler)
-		bh.Start()
-	}
+	setupHandlers(bh, appointmentHandler)
+	bh.Start()
 
 }
 
